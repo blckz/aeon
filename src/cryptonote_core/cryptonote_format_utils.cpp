@@ -307,8 +307,18 @@ namespace cryptonote
   {
     extra_nonce.clear();
     extra_nonce.push_back(TX_EXTRA_NONCE_PAYMENT_ID);
+
+//    std::cout << "cryptonote_format_utils::extra_nonce.size() 1: " << extra_nonce.size() << "\n\n"; // notarization code
+//    std::cout << "cryptonote_format_utils::extra_nonce 1: " << extra_nonce << "\n\n"; // notarization code
+
     const uint8_t* payment_id_ptr = reinterpret_cast<const uint8_t*>(&payment_id);
+
+//    std::cout << "cryptonote_format_utils::payment_id_ptr: " << payment_id_ptr << "\n\n";  // notarization code
+
     std::copy(payment_id_ptr, payment_id_ptr + sizeof(payment_id), std::back_inserter(extra_nonce));
+
+//    std::cout << "cryptonote_format_utils::extra_nonce.size() 2: " << extra_nonce.size() << "\n\n";  // notarization code
+//    std::cout << "cryptonote_format_utils::extra_nonce 2: " << extra_nonce << "\n\n";  // notarization code
   }
   //---------------------------------------------------------------
   bool get_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash& payment_id)
@@ -651,7 +661,7 @@ namespace cryptonote
     std::string hex_tx_represent = string_tools::buff_to_hex_nodelimer(txb);
 
     //hard code coinbase tx in genesis block, because "tru" generating tx use random, but genesis should be always the same
-    std::string genesis_coinbase_tx_hex = "013c01ff0001ffffffffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd08807121012bf2d282da90cee9c7a28c16e81418101ee28607d9e50f706594ee144a453b68";
+    std::string genesis_coinbase_tx_hex = "013c01ff0001ffffffffffff03029b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd0880712101d47a9612545e9c590b61a289b0209378a530eb94b08049966219e8a05b8e357c";
 
     blobdata tx_bl;
     string_tools::parse_hexstr_to_binbuff(genesis_coinbase_tx_hex, tx_bl);

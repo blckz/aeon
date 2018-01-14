@@ -246,6 +246,10 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("spendkey", boost::bind(&simple_wallet::spendkey, this, _1), "Get spendkey");
   m_cmd_binder.set_handler("seed", boost::bind(&simple_wallet::seed, this, _1), "Get deterministic seed");
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), "Show this help");
+
+  // notarization code
+  m_cmd_binder.set_handler("notarizations", boost::bind(&simple_wallet::show_notarizations, this, _1), "notarizations <payment_id_1> [<payment_id_2> ... <payment_id_N>] - Show notarizations <payment_id_1>, ... <payment_id_N>");
+
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::set_log(const std::vector<std::string> &args)
@@ -843,6 +847,62 @@ bool simple_wallet::show_payments(const std::vector<std::string> &args)
 
   return true;
 }
+// notarization code
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::show_notarizations(const std::vector<std::string> &args)
+{
+  if(args.empty())
+  {
+    fail_msg_writer() << "expected at least one payment_id";
+    return true;
+  }
+
+  message_writer() << "                            payment                             \t" <<
+    "                          transaction                           \t" <<
+    "  height\t       amount        \tunlock time           \ttimestamp";
+
+  bool payments_found = false;
+  for(std::string arg : args)
+  {
+    crypto::hash payment_id;
+    if(tools::wallet2::parse_payment_id(arg, payment_id))
+    {
+      std::list<tools::wallet2::payment_details> payments;
+      m_wallet->get_payments(payment_id, payments);
+      if(payments.empty())
+      {
+        success_msg_writer() << "No payments with id " << payment_id;
+        continue;
+      }
+
+      for (const tools::wallet2::payment_details& pd : payments)
+      {
+        if(!payments_found)
+        {
+          payments_found = true;
+        }
+
+        struct tm * timeinfo;
+        timeinfo = localtime (&pd.m_sent_time);
+
+        success_msg_writer(true) <<
+          payment_id << '\t' <<
+          pd.m_tx_hash << '\t' <<
+          std::setw(8)  << pd.m_block_height << '\t' <<
+          std::setw(21) << print_money(pd.m_amount) << '\t' <<
+		  std::setw(21) << pd.m_unlock_time << '\t' <<
+		  asctime(timeinfo);
+      }
+    }
+    else
+    {
+      fail_msg_writer() << "payment id has invalid format: \"" << arg << "\", expected 64-character string";
+    }
+  }
+
+  return true;
+}
+
 //----------------------------------------------------------------------------------------------------
 uint64_t simple_wallet::get_daemon_blockchain_height(std::string& err)
 {

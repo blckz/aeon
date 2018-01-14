@@ -98,7 +98,7 @@ bool wallet2::get_seed(std::string& electrum_words)
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_t height)
 {
-  process_unconfirmed(tx);
+  time_t sent_time = process_unconfirmed(tx); // notarization code
   std::vector<size_t> outs;
   uint64_t tx_money_got_in_outs = 0;
 
@@ -186,25 +186,52 @@ void wallet2::process_new_transaction(const cryptonote::transaction& tx, uint64_
     if(get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
     {
       uint64_t received = (tx_money_spent_in_ins < tx_money_got_in_outs) ? tx_money_got_in_outs - tx_money_spent_in_ins : 0;
-      if (0 < received && null_hash != payment_id)
+
+      if (
+//    		  0 < received && // notarization code: "0 < received && "is commented to allow the wallet that transfers funds through simplewallet to get payment details, including the timestamp (sent_time) of a thansaction.
+			  // Because of cryptonote's privacy features, only a wallet that executes the transfer of funds transferred funds has access to the timestamp information; therefore, it's only possible to view a transaction
+    		  // timestamp from the wallet that executes the transfer of funds.
+    		  null_hash != payment_id)
       {
-        payment_details payment;
-        payment.m_tx_hash      = cryptonote::get_transaction_hash(tx);
-        payment.m_amount       = received;
-        payment.m_block_height = height;
-        payment.m_unlock_time  = tx.unlock_time;
-        m_payments.emplace(payment_id, payment);
-        LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
+
+    	// notarization code: finds a payment_container with with payment_id as key
+      	std::unordered_multimap<crypto::hash, payment_details>::const_iterator pd = m_payments.find(payment_id);
+//      	if (p == m_payments.begin()){ // notarization code: tested this statement and there is never any element in m_payments.begin() position
+//			std::cout << "wallet2::process_new_transaction - ok m_payments.begin()";
+//		}
+		if (pd == m_payments.end()){ // notarization code
+//			std::cout << "wallet2::process_new_transaction - ok m_payments.end()";
+			m_payments.erase(payment_id); // notarization code:
+		}
+		// notarization code: counts number of payment_details objects in the payment_container
+//		    std::unordered_multimap<crypto::hash, payment_details> pdcount = m_payments;
+//		    std::cout << "wallet2::process_new_transaction - pdcount.count: " << pdcount.count(payment_id) << " entries.\n";
+		payment_details payment;
+		payment.m_tx_hash      = cryptonote::get_transaction_hash(tx);
+		payment.m_amount       = received;
+		payment.m_block_height = height;
+		payment.m_unlock_time  = tx.unlock_time;
+//		std::cout << "\nwallet2::process_new_transaction - sent_time if : " << sent_time; // notarization code
+		payment.m_sent_time = sent_time; // notarization code
+		m_payments.emplace(payment_id, payment);
+		LOG_PRINT_L2("Payment found: " << payment_id << " / " << payment.m_tx_hash << " / " << payment.m_amount);
       }
     }
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_unconfirmed(const cryptonote::transaction& tx)
+time_t wallet2::process_unconfirmed(const cryptonote::transaction& tx) // notarization code
 {
+  time_t sent_time = 0;
   auto unconf_it = m_unconfirmed_txs.find(get_transaction_hash(tx));
-  if(unconf_it != m_unconfirmed_txs.end())
-    m_unconfirmed_txs.erase(unconf_it);
+  if(unconf_it != m_unconfirmed_txs.end()){
+	m_unconfirmed_txs.erase(unconf_it);
+//	  std::cout << "\nwallet2::process_unconfirmed - unconf_it->second.m_sent_time: " << unconf_it->second.m_sent_time; // notarization code
+//	  std::cout << "\nwallet2::process_unconfirmed - unconf_it->second.m_change: " << unconf_it->second.m_change; // notarization code
+	  sent_time = unconf_it->second.m_sent_time; // notarization code
+
+  }
+  return sent_time;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, cryptonote::block_complete_entry& bche, crypto::hash& bl_id, uint64_t height)
@@ -517,10 +544,17 @@ bool wallet2::parse_payment_id(const std::string& payment_id_str, crypto::hash& 
   if(!epee::string_tools::parse_hexstr_to_binbuff(payment_id_str, payment_id_data))
     return false;
 
+//  std::cout << "wallet2::payment_id_data.size(): " << payment_id_data.size() << "\n\n"; // notarization code
+//  std::cout << "wallet2::payment_id_data: " << payment_id_data << "\n\n"; // notarization code
+//  std::cout << "wallet2::payment_id_data.data(): " << payment_id_data.data() << "\n\n"; // notarization code
+
   if(sizeof(crypto::hash) != payment_id_data.size())
     return false;
 
   payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_data.data());
+
+//  std::cout << "wallet2::payment_id: " << payment_id << "\n\n"; // notarization code
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
